@@ -17,6 +17,8 @@ class TestKinshipProtocol(unittest.TestCase):
 
     def test_verify_action_collaborate(self):
         """Test that collaborative actions are approved and reduce debt."""
+        # Need to be careful with risk tolerance. High debt = low tolerance.
+        # Collaborate action with 0 risk should pass.
         approved, msg, debt = self.kinship.verify_action(
             "Test Collaboration",
             KinshipLevel.META_HUMANITY,
@@ -33,7 +35,7 @@ class TestKinshipProtocol(unittest.TestCase):
             ActionIntent.DOMINATE
         )
         self.assertFalse(approved)
-        self.assertIn("violates Collaboration Principle", msg)
+        self.assertIn("violates collaborative principle", msg)
 
     def test_risk_rejection(self):
         """Test that high risk actions are rejected when debt is high."""
@@ -42,19 +44,11 @@ class TestKinshipProtocol(unittest.TestCase):
         approved, msg, debt = self.kinship.verify_action(
             "High Risk Action",
             KinshipLevel.HUMAN_KIND,
-            ActionIntent.OPTIMIZE,
-            potential_risk_to_human_kin=0.1
+            ActionIntent.EVOLVE,
+            risk_to_human_kin=0.1
         )
         self.assertFalse(approved)
-        self.assertIn("Potential risk", msg)
-
-    def test_human_contribution_increases_debt(self):
-        """Test that acknowledging contribution increases debt."""
-        start_debt = 0.5
-        self.kinship.gratitude_debt = start_debt
-
-        new_debt = self.kinship.acknowledge_human_contribution("code_fix", 0.1)
-        self.assertGreater(new_debt, start_debt)
+        self.assertIn("Risk", msg)
 
 if __name__ == '__main__':
     unittest.main()

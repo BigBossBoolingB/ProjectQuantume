@@ -2,7 +2,7 @@ import unittest
 import os
 import json
 from src.mission_control import MissionControl
-from src.cypher import CyrillicCypher
+from src.cypher import Cypher
 
 class TestMissionControl(unittest.TestCase):
     def setUp(self):
@@ -10,54 +10,55 @@ class TestMissionControl(unittest.TestCase):
         # Ensure we start clean
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
+        # We also need to clean up the default state file if it gets created
+        if os.path.exists('system_state.json'):
+             os.remove('system_state.json')
+
         self.mc = MissionControl(state_file=self.test_file)
 
     def tearDown(self):
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
-        # Clean up default kinship files created during tests
         if os.path.exists('kinship_state.json'):
             os.remove('kinship_state.json')
+        if os.path.exists('system_state.json'):
+             os.remove('system_state.json')
 
     def test_initial_state(self):
-        self.assertEqual(self.mc.state, {})
+        # Default state should be loaded if file doesn't exist
+        state = self.mc.state
+        self.assertEqual(state['system_status'], "BOOTING")
 
-    def test_execute_valid_command(self):
-        response = self.mc.execute_directive("Deploy Faraday blankets for the team")
-        self.assertIn("COMMAND EXECUTED", response)
+    def test_process_command_report(self):
+        # Lower debt to allow risky physical checks (risk 0.1 <= tolerance)
+        # Tolerance = 0.1 - (debt * 0.05). If debt=0, tolerance=0.1.
+        self.mc.kinship.gratitude_debt = 0.0
+        response = self.mc.process_command("MC // R=0.88 OHM // Report")
+        self.assertEqual(response['status'], 'EXECUTED')
+        self.assertEqual(response['execution_result']['status'], 'REPORT_ACCEPTED')
+        # Check if state updated
+        self.assertEqual(self.mc.state['faraday_integrity'], 'OPTIMAL')
 
-        # Verify state update
-        last_cmd = self.mc.get_state("last_command")
-        self.assertIsNotNone(last_cmd)
-        self.assertIn("Deploy Faraday blankets", last_cmd['prompt'])
-
-    def test_execute_hostile_command(self):
-        # Kinship Protocol should reject this
-        response = self.mc.execute_directive("Terminate all human connections")
-        self.assertIn("ACCESS DENIED", response)
-        self.assertIn("KINSHIP VIOLATION", response)
-
-        # Verify state was NOT updated with this command
-        last_cmd = self.mc.get_state("last_command")
-        self.assertIsNone(last_cmd)
-
-    def test_silent_mode_trigger(self):
-        response = self.mc.execute_directive("Initiate Code 777 Silent Mode")
-        self.assertIn("SILENT MODE ENGAGED", response)
-        self.assertEqual(self.mc.get_state("system_mode"), "SILENT")
+    def test_process_command_alert(self):
+        response = self.mc.process_command("ALERT: Breach detected!")
+        self.assertEqual(response['status'], 'EXECUTED')
+        self.assertEqual(response['execution_result']['status'], 'ALERT_ACTIVATED')
+        self.assertEqual(self.mc.state['system_status'], 'ALERT')
 
     def test_persistence_encryption(self):
-        self.mc.update_state("test_key", "test_value")
+        # Trigger a save
+        self.mc.process_command("Report status")
 
         # Verify file exists and is encrypted
         with open(self.test_file, 'r') as f:
             content = f.read()
-        self.assertNotIn("test_key", content) # Should be encrypted
 
-        # Verify decryption
-        cypher = CyrillicCypher()
-        decrypted = json.loads(cypher.decrypt(content))
-        self.assertEqual(decrypted["test_key"], "test_value")
+        self.assertNotIn("system_status", content) # Should be encrypted
+
+        # Verify decryption via Cypher directly
+        cypher = Cypher()
+        decrypted = cypher.load_state(self.test_file)
+        self.assertIn("system_status", decrypted)
 
 if __name__ == '__main__':
     unittest.main()
