@@ -1,87 +1,132 @@
-import json
-import secrets
-from typing import Dict, Any, Optional
-from src.mission_control import MissionControl
+import logging
+import random
+import time
+from typing import Dict, Tuple, Optional
+from dataclasses import dataclass
 
-class CyrillicCypher:
-    """
-    Simulates the Cyrillic Cypher for data sanitization and obfuscation.
-    """
-    @staticmethod
-    def encrypt(data: Dict[str, Any]) -> str:
-        # Simple simulation: base64-like or just a marker prefix
-        json_str = json.dumps(data)
-        return f"CYRILLIC_ENC:{json_str}"
+# Import the Shield
+try:
+    from cypher import CyrillicCypher
+except ImportError:
+    from .cypher import CyrillicCypher
 
-    @staticmethod
-    def is_sanitized(payload: str) -> bool:
-        return payload.startswith("CYRILLIC_ENC:")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("GlassBridge")
+
+@dataclass
+class BridgeStatus:
+    is_connected: bool
+    integrity_score: float  # 0.0 to 1.0 (OTDR result)
+    latency_ms: float
+    secure_channel_active: bool
 
 class GlassBridge:
-    def __init__(self, mission_control: MissionControl):
-        self.mc = mission_control
-        self.connection_active = False
-        self.integrity_verified = False
+    """
+    The Optical Nerve.
+    Manages the physical fiber-optic link between the Sovereign Core (Zone 2)
+    and Warehouse Alpha.
 
-    def perform_otdr_test(self) -> Dict[str, Any]:
-        """
-        Simulates Optical Time-Domain Reflectometer (OTDR) test.
-        Verifies light-path integrity (no physical taps).
-        """
-        # Simulation: Check if current critical event allows for success
-        # For now, we assume hardware is good if we are in DAY 2
+    Protocol: DARK_FIBER_V1
+    Security: PHYSICAL_LAYER_ONLY (No TCP/IP)
+    """
 
-        status = self.mc.get_status()
-        if "ACTIVE_EXECUTION" in status:
-            signal_loss = 0.3  # dB, well within 0.5dB criteria
-            self.integrity_verified = True
-            return {
-                "success": True,
-                "signal_loss_db": signal_loss,
-                "message": "Light-path integrity verified. No anomalies detected."
-            }
+    def __init__(self):
+        self.cypher = CyrillicCypher()
+        self.status = BridgeStatus(False, 0.0, 0.0, False)
+        self.target_node = "WAREHOUSE_ALPHA"
+        logger.info("GLASS BRIDGE: OPTICAL INTERFACE INITIALIZED.")
+
+    def perform_otdr_test(self) -> float:
+        """
+        Simulates an Optical Time Domain Reflectometer (OTDR) test.
+        Verifies there are no physical taps or breaks in the fiber.
+
+        Returns:
+            float: Integrity score (1.0 = Perfect Vacuum Seal)
+        """
+        logger.info("INITIATING OTDR PULSE...")
+        # Simulation: In reality, this reads hardware registers.
+        # We simulate a slight variance due to thermal expansion (Day 2 theme).
+        thermal_variance = random.uniform(0.00, 0.02)
+        integrity = 1.0 - thermal_variance
+
+        time.sleep(0.5) # Simulate light travel time calculation
+
+        if integrity > 0.95:
+            logger.info(f"OTDR RESULT: GREEN ({integrity:.4f}). WAVEGUIDE CLEAR.")
         else:
-            self.integrity_verified = False
-            return {
-                "success": False,
-                "signal_loss_db": 99.9,
-                "message": "OTDR failed. System status prevents verification."
-            }
+            logger.warning(f"OTDR RESULT: AMBER ({integrity:.4f}). SIGNAL DEGRADATION DETECTED.")
 
-    def initialize_handshake(self) -> bool:
+        self.status.integrity_score = integrity
+        return integrity
+
+    def establish_handshake(self) -> bool:
         """
-        Implements CYRILLIC_HANDSHAKE_V1.
+        Attempts to handshake with the endpoint using the Cyrillic Token.
         """
-        if not self.integrity_verified:
-            print("Cannot initialize handshake: Integrity not verified.")
+        if self.status.integrity_score < 0.90:
+            logger.error("HANDSHAKE ABORTED: PHYSICAL LINK UNSTABLE.")
             return False
 
-        # Simulation of handshake with Warehouse Alpha
-        # We check if the configured endpoint matches expectations
-        infra_status = self.mc.get_infrastructure_status()
-        # Note: We need to safely access potentially missing keys if structure changed,
-        # but based on previous turns, we know the structure.
+        logger.info(f"PINGING {self.target_node} via DARK FIBER...")
 
-        # In a real scenario, this would involve network calls.
-        self.connection_active = True
+        # Simulate Handshake (Challenge-Response)
+        # The 'Token' would be a cryptographic nonce in production.
+        challenge = self.cypher.encrypt({"syn": "HELLO_SOVEREIGN"})
+
+        # ... (Simulated response latency) ...
+        time.sleep(0.2)
+
+        # If simulation passes
+        self.status.is_connected = True
+        self.status.secure_channel_active = True
+        self.status.latency_ms = random.uniform(2.0, 15.0) # Ultra-low latency
+
+        logger.info("HANDSHAKE COMPLETE. SECURE OPTICAL TUNNEL ESTABLISHED.")
         return True
 
-    def transmit_secure_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def transmit_secure(self, payload: Dict) -> bool:
         """
-        Sanitizes and transmits data across the bridge.
+        Encrypts and pushes data across the bridge.
         """
-        if not self.connection_active:
-             return {"success": False, "error": "Connection not active."}
+        if not self.status.is_connected:
+            logger.error("TRANSMISSION FAILED: BRIDGE DOWN.")
+            return False
 
-        # 1. Sanitize/Encrypt
-        encrypted_payload = CyrillicCypher.encrypt(data)
+        try:
+            # 1. ENCRYPT (The Shield)
+            encrypted_packet = self.cypher.encrypt(payload)
 
-        # 2. Transmit (Simulated)
-        # In reality, this sends bytes over the fiber.
-        # We log success.
+            # 2. TRANSMIT (Simulation)
+            logger.info(f"TRANSMITTING {len(encrypted_packet)} BYTES -> {self.target_node}")
+            # In real code, this writes to the serial/optical buffer.
 
+            return True
+        except Exception as e:
+            logger.error(f"TRANSMISSION ERROR: {e}")
+            return False
+
+    def get_diagnostics(self) -> Dict:
         return {
-            "success": True,
-            "bytes_transmitted": len(encrypted_payload),
-            "protocol": "CYRILLIC_HANDSHAKE_V1"
+            "link_target": self.target_node,
+            "connected": self.status.is_connected,
+            "integrity": f"{self.status.integrity_score:.4f}",
+            "latency": f"{self.status.latency_ms:.2f}ms"
         }
+
+# === UNIT TEST ===
+if __name__ == "__main__":
+    bridge = GlassBridge()
+
+    # Step 1: Physical Check
+    integrity = bridge.perform_otdr_test()
+
+    # Step 2: Protocol Handshake
+    if integrity > 0.95:
+        bridge.establish_handshake()
+
+        # Step 3: Test Transmission
+        test_payload = {"log": "Day 2 Operations Start", "kinship_safe": True}
+        bridge.transmit_secure(test_payload)
+
+        print(bridge.get_diagnostics())
