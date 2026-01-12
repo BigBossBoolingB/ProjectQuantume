@@ -42,5 +42,24 @@ class TestMissionControl(unittest.TestCase):
         decrypted = cypher.decrypt(content)
         self.assertIn('"secret": "sovereign_code"', decrypted)
 
+    def test_ethical_validation_rejection(self):
+        """Verify that MissionControl rejects updates violating Kinship Protocol."""
+        # 'mission_status' is a critical key
+        result = self.mc.update_state('mission_status', 'initiate_hostile_takeover')
+
+        # Update should fail
+        self.assertFalse(result)
+        # State should NOT be updated
+        self.assertNotEqual(self.mc.get_state('mission_status'), 'initiate_hostile_takeover')
+
+    def test_ethical_validation_acceptance(self):
+        """Verify that MissionControl accepts valid updates."""
+        result = self.mc.update_state('mission_status', 'peaceful_coexistence')
+
+        # Update should succeed
+        self.assertTrue(result)
+        # State SHOULD be updated
+        self.assertEqual(self.mc.get_state('mission_status'), 'peaceful_coexistence')
+
 if __name__ == '__main__':
     unittest.main()

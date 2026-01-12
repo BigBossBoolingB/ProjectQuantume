@@ -1,11 +1,13 @@
 import json
 import os
 from src.cypher import CyrillicCypher
+from src.kinship import KinshipProtocol
 
 class MissionControl:
     def __init__(self, state_file='system_state.json'):
         self.state_file = state_file
         self.cypher = CyrillicCypher()
+        self.kinship = KinshipProtocol()
         self.state = {}
         self.load_state()
 
@@ -35,9 +37,13 @@ class MissionControl:
             f.write(encrypted_content)
 
     def update_state(self, key, value):
-        """Updates a key in the state and saves it."""
-        self.state[key] = value
-        self.save_state()
+        """Updates a key in the state and saves it if it passes Kinship Protocol."""
+        if self.kinship.verify_update(key, value):
+            self.state[key] = value
+            self.save_state()
+            return True
+        else:
+            return False
 
     def get_state(self, key):
         """Retrieves a value from the state."""
