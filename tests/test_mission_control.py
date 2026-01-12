@@ -2,6 +2,7 @@ import unittest
 import os
 import json
 from src.mission_control import MissionControl
+from src.cypher import CyrillicCypher
 
 class TestMissionControl(unittest.TestCase):
     def setUp(self):
@@ -25,6 +26,21 @@ class TestMissionControl(unittest.TestCase):
     def test_update_state(self):
         self.mc.update_state('fuel', 100)
         self.assertEqual(self.mc.get_state('fuel'), 100)
+
+    def test_encrypted_storage(self):
+        """Verify that the file on disk is actually encrypted (not plain JSON)."""
+        self.mc.update_state('secret', 'sovereign_code')
+
+        with open(self.test_file, 'r') as f:
+            content = f.read()
+
+        # Content should NOT look like the plain JSON
+        self.assertNotIn('"secret": "sovereign_code"', content)
+
+        # But it should be decryptable
+        cypher = CyrillicCypher()
+        decrypted = cypher.decrypt(content)
+        self.assertIn('"secret": "sovereign_code"', decrypted)
 
 if __name__ == '__main__':
     unittest.main()
