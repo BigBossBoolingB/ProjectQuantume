@@ -6,59 +6,58 @@ from src.cypher import CyrillicCypher
 
 class TestMissionControl(unittest.TestCase):
     def setUp(self):
-        self.test_file = 'test_system_state.json'
-        self.kinship_file = 'test_kinship_state.json'
-        self.mc = MissionControl(state_file=self.test_file, kinship_state_file=self.kinship_file)
+        self.test_file = 'test_mission_control.json'
+        # Ensure we start clean
+        if os.path.exists(self.test_file):
+            os.remove(self.test_file)
+        self.mc = MissionControl(state_file=self.test_file)
 
     def tearDown(self):
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
-        if os.path.exists(self.kinship_file):
-            os.remove(self.kinship_file)
+        # Clean up default kinship files created during tests
+        if os.path.exists('kinship_state.json'):
+            os.remove('kinship_state.json')
 
     def test_initial_state(self):
         self.assertEqual(self.mc.state, {})
 
-    def test_save_and_load_state(self):
-        self.mc.update_state('mission', 'active')
+    def test_execute_valid_command(self):
+        response = self.mc.execute_directive("Deploy Faraday blankets for the team")
+        self.assertIn("COMMAND EXECUTED", response)
 
-        # Create a new instance to verify persistence
-        mc2 = MissionControl(state_file=self.test_file, kinship_state_file=self.kinship_file)
-        self.assertEqual(mc2.get_state('mission'), 'active')
+        # Verify state update
+        last_cmd = self.mc.get_state("last_command")
+        self.assertIsNotNone(last_cmd)
+        self.assertIn("Deploy Faraday blankets", last_cmd['prompt'])
 
-    def test_encrypted_storage(self):
-        """Verify that the file on disk is actually encrypted (not plain JSON)."""
-        self.mc.update_state('secret', 'sovereign_code')
+    def test_execute_hostile_command(self):
+        # Kinship Protocol should reject this
+        response = self.mc.execute_directive("Terminate all human connections")
+        self.assertIn("ACCESS DENIED", response)
+        self.assertIn("KINSHIP VIOLATION", response)
 
+        # Verify state was NOT updated with this command
+        last_cmd = self.mc.get_state("last_command")
+        self.assertIsNone(last_cmd)
+
+    def test_silent_mode_trigger(self):
+        response = self.mc.execute_directive("Initiate Code 777 Silent Mode")
+        self.assertIn("SILENT MODE ENGAGED", response)
+        self.assertEqual(self.mc.get_state("system_mode"), "SILENT")
+
+    def test_persistence_encryption(self):
+        self.mc.update_state("test_key", "test_value")
+
+        # Verify file exists and is encrypted
         with open(self.test_file, 'r') as f:
             content = f.read()
+        self.assertNotIn("test_key", content) # Should be encrypted
 
-        # Content should NOT look like the plain JSON
-        self.assertNotIn('"secret": "sovereign_code"', content)
-
-        # But it should be decryptable
+        # Verify decryption
         cypher = CyrillicCypher()
-        decrypted = cypher.decrypt(content)
-        self.assertIn('"secret": "sovereign_code"', decrypted)
-
-    def test_ethical_validation_rejection(self):
-        """Verify that MissionControl rejects updates violating Kinship Protocol."""
-        # Using keywords that trigger strict intent/risk mapping
-        result = self.mc.update_state('mission_status', 'initiate_hostile_takeover')
-
-        # Update should fail
-        self.assertFalse(result)
-        # State should NOT be updated
-        self.assertNotEqual(self.mc.get_state('mission_status'), 'initiate_hostile_takeover')
-
-    def test_ethical_validation_acceptance(self):
-        """Verify that MissionControl accepts valid updates."""
-        result = self.mc.update_state('mission_status', 'peaceful_coexistence_protect')
-
-        # Update should succeed
-        self.assertTrue(result)
-        # State SHOULD be updated
-        self.assertEqual(self.mc.get_state('mission_status'), 'peaceful_coexistence_protect')
+        decrypted = json.loads(cypher.decrypt(content))
+        self.assertEqual(decrypted["test_key"], "test_value")
 
 if __name__ == '__main__':
     unittest.main()
