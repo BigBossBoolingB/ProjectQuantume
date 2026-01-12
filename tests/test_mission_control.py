@@ -43,5 +43,31 @@ class TestMissionControl(unittest.TestCase):
         infra = mc.get_infrastructure_status()
         self.assertEqual(infra["faraday_cage"]["status"], "CERTIFIED_SOVEREIGN")
 
+    def test_get_security_protocols(self):
+        mc = MissionControl(self.state_file)
+        # Update state with security protocols
+        mc.state["system_state"]["security_protocols"] = {
+            "active_cypher": "TEST_CYPHER"
+        }
+        mc.save_state()
+
+        # Reload to verify
+        mc2 = MissionControl(self.state_file)
+        protocols = mc2.get_security_protocols()
+        self.assertEqual(protocols["active_cypher"], "TEST_CYPHER")
+
+    def test_get_next_critical_event(self):
+        mc = MissionControl(self.state_file)
+        # Update state with critical event
+        mc.state["system_state"]["next_critical_event"] = {
+            "event": "TEST_EVENT"
+        }
+        mc.save_state()
+
+        # Reload to verify
+        mc2 = MissionControl(self.state_file)
+        event = mc2.get_next_critical_event()
+        self.assertEqual(event["event"], "TEST_EVENT")
+
 if __name__ == '__main__':
     unittest.main()

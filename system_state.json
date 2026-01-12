@@ -54,7 +54,13 @@
     },
     "security_protocols": {
       "active_cypher": "CYRILLIC_SYSTEM_OBFUSCATION",
-      "comms_mode": "PULSE_6_"
+      "comms_mode": "PULSE_6_LOW_SIGNATURE",
+      "response_package": "TRI_BRANCH_READY_FOR_RE_EVAL"
+    },
+    "next_critical_event": {
+      "event": "OTDR_LIGHT_PATH_VERIFICATION",
+      "estimated_time": "2026-01-11T19:30:00-07:00",
+      "success_criteria": "SIGNAL_LOSS_LESS_THAN_0.5DB"
     }
   }
 }

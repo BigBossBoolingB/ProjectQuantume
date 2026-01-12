@@ -41,3 +41,9 @@ class MissionControl:
 
     def get_infrastructure_status(self) -> Dict[str, Any]:
         return self.state.get("system_state", {}).get("physical_infrastructure", {})
+
+    def get_security_protocols(self) -> Dict[str, Any]:
+        return self.state.get("system_state", {}).get("security_protocols", {})
+
+    def get_next_critical_event(self) -> Dict[str, Any]:
+        return self.state.get("system_state", {}).get("next_critical_event", {})
