@@ -1,0 +1,1 @@
+CYRILLIC_ENC:{"last_action": {"command": "Connect to Warehouse Alpha using the glass bridge.", "intent": "COLLABORATE", "kinship_debt": 0.949, "bridge_status": {"link_target": "WAREHOUSE_ALPHA", "connected": true, "integrity": "0.9971", "latency": "4.23ms"}}}
