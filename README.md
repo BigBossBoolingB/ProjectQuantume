@@ -21,18 +21,19 @@ from src.mission_control import MissionControl
 mc = MissionControl()
 
 # Process a command
-response = mc.process_command("MC // R=0.88 OHM // Report")
+response = mc.execute_directive("Verify grounding resistance to protect the human team.")
 print(response)
-# Output: {'status': 'EXECUTED', 'execution_result': {'status': 'REPORT_ACCEPTED', ...}, ...}
+# Output: "EXECUTED: AUTHORIZED: Action aligns with Kinship Protocol. (Debt: 0.9500)"
 
-# Check system status
-status = mc.get_system_status()
-print(status)
+# Trigger Silent Mode
+response = mc.execute_directive("Initiate Code 777 Silent Mode")
+print(response)
+# Output: "CRITICAL: SILENT MODE ENGAGED. RF SYSTEMS SEVERED."
 ```
 
 ## Testing
 
-To run the tests, use the following command:
+To run the tests, use the following command from the project root:
 
 ```bash
 python3 -m unittest tests/test_mission_control.py tests/test_kinship.py tests/test_context_funnel.py tests/test_cypher.py

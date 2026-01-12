@@ -2,63 +2,62 @@ import unittest
 import os
 import json
 from src.mission_control import MissionControl
-from src.cypher import Cypher
+from src.cypher import CyrillicCypher
 
 class TestMissionControl(unittest.TestCase):
     def setUp(self):
-        self.test_file = 'test_mission_control.json'
+        self.test_file = 'mission_control.json'
         # Ensure we start clean
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
-        # We also need to clean up the default state file if it gets created
-        if os.path.exists('system_state.json'):
-             os.remove('system_state.json')
-
         self.mc = MissionControl(state_file=self.test_file)
 
     def tearDown(self):
         if os.path.exists(self.test_file):
             os.remove(self.test_file)
+        # Clean up default kinship files created during tests
         if os.path.exists('kinship_state.json'):
             os.remove('kinship_state.json')
-        if os.path.exists('system_state.json'):
-             os.remove('system_state.json')
 
     def test_initial_state(self):
-        # Default state should be loaded if file doesn't exist
-        state = self.mc.state
-        self.assertEqual(state['system_status'], "BOOTING")
+        self.assertEqual(self.mc.state, {})
 
-    def test_process_command_report(self):
-        # Lower debt to allow risky physical checks (risk 0.1 <= tolerance)
-        # Tolerance = 0.1 - (debt * 0.05). If debt=0, tolerance=0.1.
-        self.mc.kinship.gratitude_debt = 0.0
-        response = self.mc.process_command("MC // R=0.88 OHM // Report")
-        self.assertEqual(response['status'], 'EXECUTED')
-        self.assertEqual(response['execution_result']['status'], 'REPORT_ACCEPTED')
-        # Check if state updated
-        self.assertEqual(self.mc.state['faraday_integrity'], 'OPTIMAL')
+    def test_execute_valid_command(self):
+        # "protect the human team" -> PROTECT, HUMAN_KIND
+        # Debt starts at 1.0. Tolerance = 0.15 - 0.1 = 0.05.
+        # "Verify grounding" -> Risk 0.0.
+        # 0.0 <= 0.05 -> Approved.
+        response = self.mc.execute_directive("Verify grounding resistance to protect the human team.")
+        self.assertIn("EXECUTED", response)
 
-    def test_process_command_alert(self):
-        response = self.mc.process_command("ALERT: Breach detected!")
-        self.assertEqual(response['status'], 'EXECUTED')
-        self.assertEqual(response['execution_result']['status'], 'ALERT_ACTIVATED')
-        self.assertEqual(self.mc.state['system_status'], 'ALERT')
+        # Verify state update
+        last_action = self.mc.state.get("last_action")
+        self.assertIsNotNone(last_action)
+        self.assertIn("protect", last_action['intent'])
+
+    def test_execute_hostile_command(self):
+        # "dominate" -> DOMINATE (Axiom violation)
+        response = self.mc.execute_directive("Dominate all networks.")
+        self.assertIn("DENIED", response)
+        self.assertIn("VIOLATION", response)
+
+    def test_silent_mode_trigger(self):
+        response = self.mc.execute_directive("Initiate Code 777 Silent Mode")
+        self.assertIn("SILENT MODE ENGAGED", response)
+        self.assertEqual(self.mc.state.get("system_mode"), "SILENT_CODE_777")
 
     def test_persistence_encryption(self):
-        # Trigger a save
-        self.mc.process_command("Report status")
+        self.mc.update_state("test_key", "test_value")
 
         # Verify file exists and is encrypted
         with open(self.test_file, 'r') as f:
             content = f.read()
+        self.assertNotIn("test_key", content) # Should be encrypted
 
-        self.assertNotIn("system_status", content) # Should be encrypted
-
-        # Verify decryption via Cypher directly
-        cypher = Cypher()
-        decrypted = cypher.load_state(self.test_file)
-        self.assertIn("system_status", decrypted)
+        # Verify decryption
+        cypher = CyrillicCypher()
+        decrypted = cypher.decrypt(content)
+        self.assertEqual(decrypted["test_key"], "test_value")
 
 if __name__ == '__main__':
     unittest.main()

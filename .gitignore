@@ -1,3 +1,4 @@
 __pycache__/
 *.pyc
-system_state.json
+mission_control.json
+kinship_state.json

@@ -1,46 +1,27 @@
 import unittest
-from src.context_funnel import ContextFunnel
-from src.kinship import ActionIntent, KinshipLevel, KinshipProtocol
+from src.context_funnel import ContextFunnel, DistilledCommand
+from src.kinship import ActionIntent, KinshipLevel
 
 class TestContextFunnel(unittest.TestCase):
     def setUp(self):
         self.funnel = ContextFunnel()
 
-    def test_chunking(self):
-        text = "Hello world, this is a test. Another chunk."
-        chunks = self.funnel._chunk_input(text)
-        self.assertGreater(len(chunks), 0)
+    def test_intent_protect(self):
+        # "protect" maps to PROTECT
+        command = self.funnel.process_prompt("Deploy protection for the team")
+        self.assertEqual(command.primary_intent, ActionIntent.PROTECT)
+        self.assertEqual(command.target_kinship_level, KinshipLevel.HUMAN_KIND)
 
-    def test_intent_report(self):
-        result = self.funnel.process("System status report")
-        self.assertEqual(result['primary_intent'], "report")
-        self.assertTrue(result['verified']) # Assuming high confidence
+    def test_intent_silent_mode(self):
+        command = self.funnel.process_prompt("Emergency! Code 777 Silent Mode now!")
+        self.assertTrue(command.is_silent_mode_request)
 
-    def test_intent_alert(self):
-        result = self.funnel.process("ALERT: Critical breach detected!")
-        self.assertEqual(result['primary_intent'], "alert")
-        self.assertIn('alert', result['entities'])
-
-    def test_entity_extraction_grounding(self):
-        result = self.funnel.process("MC // R=0.88 OHM // Check")
-        self.assertIn('grounding_resistance', result['entities'])
-        self.assertEqual(result['entities']['grounding_resistance'], 0.88)
-
-    def test_integration_with_kinship(self):
-        # Setup mock or real kinship
-        kinship = KinshipProtocol("test_kinship_funnel.json")
-        funnel = ContextFunnel(kinship)
-
-        result = funnel.process("Execute thermal deception protocol")
-
-        # Verify kinship checks ran
-        self.assertTrue(result['kinship_approved'])
-        self.assertNotEqual(result['kinship_message'], "Kinship check bypassed (no protocol linked)")
-
-        # Cleanup
-        import os
-        if os.path.exists("test_kinship_funnel.json"):
-            os.remove("test_kinship_funnel.json")
+    def test_intent_isolate(self):
+        # "sever" maps to ISOLATE
+        command = self.funnel.process_prompt("Sever the connection immediately")
+        self.assertEqual(command.primary_intent, ActionIntent.ISOLATE)
+        # Risk starts at 0.0. ISOLATE adds 0.4.
+        self.assertGreaterEqual(command.risk_score, 0.4)
 
 if __name__ == '__main__':
     unittest.main()
